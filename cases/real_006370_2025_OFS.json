@@ -1,0 +1,91 @@
+{
+  "id": "real_006370_2025_OFS",
+  "name": "대구백화점",
+  "real": true,
+  "stock_code": "006370",
+  "corp_code": "00108977",
+  "fs_div": "OFS",
+  "fs_label": "별도",
+  "unit": "백만원",
+  "years": [
+    2023,
+    2024,
+    2025
+  ],
+  "profit": [
+    -22942,
+    -23076,
+    -26933
+  ],
+  "cash": [
+    -23466,
+    -23432,
+    -24660
+  ],
+  "assets": 28004,
+  "liabilities": 174482,
+  "debt": 160741,
+  "due": 155830,
+  "wording": false,
+  "wording_detail": {
+    "prior_year": 2024,
+    "prior_text": "",
+    "current_flag": false,
+    "current_text": "",
+    "current_opinion": "적정의견",
+    "auditor": "태일회계법인"
+  },
+  "rcept_nos": {
+    "2023": "20240321000387",
+    "2024": "20250321000349",
+    "2025": "20260323000628"
+  },
+  "accounts_used": {
+    "2023": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "단기차입금",
+      "cur_lt_borrow": null,
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": null
+    },
+    "2024": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "단기차입금",
+      "cur_lt_borrow": "유동성장기차입금",
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": null
+    },
+    "2025": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "단기차입금",
+      "cur_lt_borrow": "유동성장기차입금",
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": null
+    }
+  },
+  "sources": [
+    "OpenDART 재무제표(별도) / 2023 사업보고서 20240321000387, 2024 사업보고서 20250321000349, 2025 사업보고서 20260323000628",
+    "OpenDART 재무제표(별도) / 2023 사업보고서 20240321000387, 2024 사업보고서 20250321000349, 2025 사업보고서 20260323000628",
+    "OpenDART 재무상태표(별도) / 2025 사업보고서 20260323000628",
+    "OpenDART 재무상태표(별도) 차입금·사채 계정 합산 / 2025 사업보고서 20260323000628",
+    "OpenDART 회계감사인의 명칭 및 감사의견 / 2024 사업보고서 (당기 참고: 관련 문구 없음)"
+  ],
+  "links": {
+    "2023": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20240321000387",
+    "2024": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250321000349",
+    "2025": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260323000628"
+  },
+  "fetched_at": "2026-10-19T11:42:43+00:00"
+}
