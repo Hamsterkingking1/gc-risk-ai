@@ -8,19 +8,23 @@ class AuditTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.original=app.DB
+        self.original_cases=app.CASES
         app.DB=Path(self.temp.name)/'test.sqlite3'
+        app.CASES=app.SYNTHETIC_CASES+app.original_cases if hasattr(app,'original_cases') else app.SYNTHETIC_CASES+self.original_cases
         app.init_db()
     def tearDown(self):
         app.DB=self.original
+        app.CASES=self.original_cases
         self.temp.cleanup()
     def payload(self,case='risk'):
         with app.connect() as c:
             r=app.read_record(c,case,'cash')
         return {**r,'case_id':case,'signal_id':'cash','performer':'A','reason':'가상 사유','evidence':'가상 증거 E1','result':'가상 대사 수행','conclusion':'추가 확인 필요'}
     def test_three_cases(self):
-        self.assertEqual([s['flag'] for s in app.signals(app.CASES[0])],[True]*5)
-        self.assertEqual([s['flag'] for s in app.signals(app.CASES[1])],[False]*5)
-        self.assertEqual([s['flag'] for s in app.signals(app.CASES[2])],[None]*5)
+        self.assertTrue(all(c.get('real') for c in self.original_cases))
+        self.assertEqual([s['flag'] for s in app.signals(app.SYNTHETIC_CASES[0])],[True]*5)
+        self.assertEqual([s['flag'] for s in app.signals(app.SYNTHETIC_CASES[1])],[False]*5)
+        self.assertEqual([s['flag'] for s in app.signals(app.SYNTHETIC_CASES[2])],[None]*5)
     def test_zero_denominator_and_boundaries(self):
         c=copy.deepcopy(app.CASES[0]);c['liabilities']=0;c['debt']=0
         self.assertIsNone(app.signals(c)[2]['flag']);self.assertIsNone(app.signals(c)[3]['flag'])

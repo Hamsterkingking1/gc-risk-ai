@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent
 DB = ROOT / 'data' / 'audit.sqlite3'
 HOST, PORT = '127.0.0.1', int(os.environ.get('GC_AUDIT_PORT', '8765'))
 
-CASES = [
+SYNTHETIC_CASES = [
     dict(id='risk', name='가상 A제조', years=[2023,2024,2025], profit=[-100,-80,-120], cash=[-60,-90,-110], assets=650, liabilities=1000, debt=800, due=500, wording=True),
     dict(id='clear', name='가상 B제조', years=[2023,2024,2025], profit=[100,130,160], cash=[80,110,140], assets=1800, liabilities=1000, debt=800, due=200, wording=False),
     dict(id='missing', name='가상 C제조', years=[2023,2024,2025], profit=[-100,None,-50], cash=[-60,None,-110], assets=650, liabilities=None, debt=None, due=300, wording=None),
@@ -31,7 +31,7 @@ def load_real_cases(folder=ROOT / 'cases'):
             continue
     return out
 
-CASES += load_real_cases()
+CASES = load_real_cases()
 
 RULES = [
     dict(
