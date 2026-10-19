@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+data/
+*.sqlite3
+*.sqlite3-*
+.env
+.env.*
+!.env.example
+*.log
+exports/
+시연_조서초안.txt
+preview.png
+.DS_Store
+Thumbs.db
