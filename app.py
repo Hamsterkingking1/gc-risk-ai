@@ -17,6 +17,20 @@ CASES = [
     dict(id='clear', name='가상 B제조', years=[2023,2024,2025], profit=[100,130,160], cash=[80,110,140], assets=1800, liabilities=1000, debt=800, due=200, wording=False),
     dict(id='missing', name='가상 C제조', years=[2023,2024,2025], profit=[-100,None,-50], cash=[-60,None,-110], assets=650, liabilities=None, debt=None, due=300, wording=None),
 ]
+
+def load_real_cases(folder=ROOT / 'cases'):
+    """dart_fetch.py가 만든 공개 공시 스냅샷을 불러옵니다. 형식이 잘못된 파일은 건너뜁니다."""
+    out = []
+    for path in sorted(folder.glob('real_*.json')) if folder.exists() else []:
+        try:
+            case = json.loads(path.read_text(encoding='utf-8'))
+            if all(k in case for k in ('id', 'name', 'years', 'profit', 'cash', 'assets', 'liabilities', 'debt', 'due', 'wording')):
+                out.append(case)
+        except (OSError, ValueError):
+            continue
+    return out
+
+CASES += load_real_cases()
 RULES = [
     dict(id='loss', title='반복 손실', rule='최근 3개년 당기순손익이 모두 음수', why='손실의 지속 원인과 경영진의 대응 계획을 확인합니다.', requests='경영진 계속기업 평가, 손익 개선계획, 최근 실적', procedure='손실의 주요 원인을 구분하고 개선계획의 가정을 최근 실적과 비교합니다.'),
     dict(id='cash', title='영업현금흐름 악화', rule='최근 3개년 영업현금흐름이 모두 음수', why='영업에서 필요한 현금을 마련할 수 있는지 검토합니다.', requests='월별 자금계획, 현금 잔액 자료, 매출·회수 실적', procedure='자금계획 시작 잔액을 대사하고 매출·회수 가정과 실제 실적의 차이를 확인합니다.'),
@@ -29,17 +43,31 @@ STATUSES = ('미착수','자료 요청','수행 중','검토 요청','검토 완
 
 def signals(case):
     values = []
+    unit = case.get('unit', '백만원')
     for key in ('profit','cash'):
         xs = case[key]
-        values.append((None if any(x is None for x in xs) else all(x < 0 for x in xs), ' / '.join(f'{year}: ' + ('자료 없음' if x is None else f'{x:,}') for year,x in zip(case['years'],xs)) + ' (백만원)'))
+        values.append((None if any(x is None for x in xs) else all(x < 0 for x in xs), ' / '.join(f'{year}: ' + ('자료 없음' if x is None else f'{x:,}') for year,x in zip(case['years'],xs)) + f' ({unit})'))
     a,b = case['assets'],case['liabilities']
     ratio = a/b*100 if a is not None and b is not None and b > 0 else None
     values.append((None if ratio is None else ratio < 100, '계산 보류' if ratio is None else f'{a:,} ÷ {b:,} × 100 = {ratio:.1f}%'))
     a,b = case['due'],case['debt']
     ratio = a/b*100 if a is not None and b is not None and b > 0 and 0 <= a <= b else None
     values.append((None if ratio is None else ratio >= 50, '계산 보류' if ratio is None else f'{a:,} ÷ {b:,} × 100 = {ratio:.1f}%'))
-    values.append((case['wording'], '원문 미확보' if case['wording'] is None else '가상 전기 보고서: ' + ('관련 문구 있음' if case['wording'] else '관련 문구 없음')))
-    return [{**r, 'flag':v[0], 'value':v[1], 'source':f'가상 데이터 / {case["name"]} / ' + ('2023~2025년 손익·현금흐름표' if i<2 else '2025년 재무상태·차입금 명세' if i<4 else '2024년 보고서 메타데이터'), 'standard_status':'공식 적용본 대조 전 · 기준 연결 보류'} for i,(r,v) in enumerate(zip(RULES,values))]
+    if case.get('real'):
+        d = case.get('wording_detail', {})
+        text = '감사의견 자료 미확보' if case['wording'] is None else f'{d.get("prior_year")}년 감사보고서: ' + ('계속기업 관련 문구 있음' if case['wording'] else '관련 문구 없음')
+        if d.get('prior_text'):
+            text += f' — {d["prior_text"][:200]}'
+        values.append((case['wording'], text))
+        sources = case['sources']
+    else:
+        values.append((case['wording'], '원문 미확보' if case['wording'] is None else '가상 전기 보고서: ' + ('관련 문구 있음' if case['wording'] else '관련 문구 없음')))
+        sources = [f'가상 데이터 / {case["name"]} / ' + ('2023~2025년 손익·현금흐름표' if i<2 else '2025년 재무상태·차입금 명세' if i<4 else '2024년 보고서 메타데이터') for i in range(5)]
+    out = [{**r, 'flag':v[0], 'value':v[1], 'source':sources[i], 'standard_status':'공식 적용본 대조 전 · 기준 연결 보류'} for i,(r,v) in enumerate(zip(RULES,values))]
+    if case.get('real'):
+        out[3]['rule'] = '(단기차입금 + 유동성장기차입금 + 유동성사채) ÷ (위 합계 + 장기차입금 + 사채) ≥ 50% · 공시 계정 기준 근사치'
+        out[4]['rule'] = '전기 사업보고서의 감사의견 항목(강조사항·특기사항 등)에 "계속기업"·"존속능력"·"중요한 불확실성" 포함 여부 · 키워드 검색이며 원문 확인 필요'
+    return out
 
 @contextmanager
 def connect():
@@ -103,7 +131,11 @@ def save_record(data):
 
 def export_text(case_id):
     case=next(x for x in CASES if x['id']==case_id)
-    lines=['계속기업 검토 조서 초안 — 시연용','가상자료 / 감사판단 및 실제 수행 사실을 증명하는 문서가 아님',f'기업: {case["name"]} | 2025년 | 별도 | 금액 단위: 백만원','기준 원문: 공식 적용본 대조 전, 연결 보류','AI: 미연결, 고정된 절차 예시 사용','']
+    yr=case['years'][-1]
+    fs=case.get('fs_label','별도')
+    unit=case.get('unit','백만원')
+    data_note='OpenDART 공시 스냅샷 (원문 대조 필요) / 감사판단 및 실제 수행 사실을 증명하는 문서가 아님' if case.get('real') else '가상자료 / 감사판단 및 실제 수행 사실을 증명하는 문서가 아님'
+    lines=['계속기업 검토 조서 초안 — 시연용',data_note,f'기업: {case["name"]} | {yr}년 | {fs} | 금액 단위: {unit}','기준 원문: 공식 적용본 대조 전, 연결 보류','AI: 미연결, 고정된 절차 예시 사용','']
     labels=dict(zip(FIELDS,('수행자','검토자','요청 자료','선택 절차','선택 이유','증거 참조','실제 수행 결과','작성자 결론','미해결 사항','검토 의견','업무 상태')))
     with connect() as c:
         for s in signals(case):

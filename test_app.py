@@ -67,5 +67,20 @@ class AuditTests(unittest.TestCase):
         self.assertIn('공식 적용본 대조 전',text)
         app.save_record(self.payload())
         self.assertIn('실제 수행 결과: 가상 대사 수행',app.export_text('risk'))
+    def test_dart_parse_and_real_case_load(self):
+        import dart_fetch, json
+        self.assertEqual(dart_fetch.to_number('1,234,567'), 1234567)
+        self.assertEqual(dart_fetch.to_number('(50,000)'), -50000)
+        self.assertIsNone(dart_fetch.to_number('-'))
+        rows=[{'sj_div':'IS','account_id':'ifrs-full_ProfitLoss','account_nm':'당기순손실','thstrm_amount':'-12,000,000,000'}]
+        self.assertEqual(dart_fetch.pick(rows,'profit'),(-12000000000,'당기순손실'))
+        cdir=Path(self.temp.name)/'cases'; cdir.mkdir()
+        snap={'id':'real_000000_2025_OFS','name':'테스트상장사','real':True,'fs_label':'별도','unit':'백만원','years':[2023,2024,2025],'profit':[-10,-20,-30],'cash':[-5,-6,-7],'assets':400,'liabilities':500,'debt':300,'due':200,'wording':True,'wording_detail':{'prior_year':2024,'prior_text':'계속기업 관련 중요한 불확실성'},'sources':['S1','S2','S3','S4','S5']}
+        (cdir/'real_000000_2025_OFS.json').write_text(json.dumps(snap,ensure_ascii=False),encoding='utf-8')
+        loaded=app.load_real_cases(cdir)
+        self.assertEqual(len(loaded),1)
+        sigs=app.signals(loaded[0])
+        self.assertEqual([s['flag'] for s in sigs],[True]*5)
+        self.assertIn('계속기업 관련 중요한 불확실성',sigs[4]['value'])
 
 if __name__=='__main__': unittest.main()

@@ -63,6 +63,15 @@ Python 3.10 이상이면 추가 패키지 없이 `python app.py`로 실행할 �
 
 ## 저장소 구성
 
-`app.py`: 서버·규칙 계산·SQLite 저장 / `index.html`: 한국어 화면 / `test_app.py`: 자동 검증 / `TEAM_*.md`: 팀 공유 자료
+`app.py`: 서버·규칙 계산·SQLite 저장 / `index.html`: 한국어 화면 / `dart_fetch.py`: OpenDART 실제 기업 공시 스냅샷 수집 / `test_app.py`: 자동 검증 / `TEAM_*.md`: 팀 공유 자료
 
-실행 시 생성되는 `data/`와 개인정보·인증키를 담을 수 있는 `.env`, 내보낸 조서는 Git에 포함하지 않습니다. DART·AI 연결 시 인증키는 코드에 적지 않고 별도 로컬 설정으로 처리할 예정입니다. 현재 `.env`를 읽는 기능은 없습니다.
+`site/`: 설치 없는 온라인 시연판(localStorage 저장). `python site/prepare.py`로 루트의 `app.py`·`index.html`에서 `site/dist/`를 다시 생성합니다. 검증은 `node --test site/demo.test.cjs`(Node.js 필요).
+
+## OpenDART 실제 기업 데이터 연동 (선택)
+
+1. `.env.example`을 `.env`로 복사하고 `DART_API_KEY=발급받은40자리키`를 입력합니다 (`.env`는 Git에 포함되지 않습니다).
+2. 기업 검색: `python dart_fetch.py --find 회사명`
+3. 3개년 공시 스냅샷 생성: `python dart_fetch.py --stock 6자리종목코드 --year 2025` (연결 기준은 `--fs CFS` 추가)
+4. 생성된 `cases/real_*.json`은 공개 공시 수치와 접수번호만 담고 있어 서버(`app.py`)와 온라인 시연판(`python site/prepare.py`)에서 인증키 없이 바로 불러옵니다.
+
+실행 시 생성되는 `data/`와 개인정보·인증키를 담을 수 있는 `.env`, 내보낸 조서는 Git에 포함하지 않습니다.
