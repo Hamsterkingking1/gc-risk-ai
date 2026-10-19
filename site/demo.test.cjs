@@ -5,7 +5,7 @@ const {createDemo}=require('./dist/demo-engine.js');
 const cases=JSON.parse(fs.readFileSync(__dirname+'/dist/cases.json','utf8'));
 function setup(){const m=new Map(),storage={getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,v)};return {demo:createDemo(cases,storage),storage};}
 function input(d,case_id='risk'){return {...d.read().records[case_id+':cash'],case_id,signal_id:'cash',performer:'A',reason:'가상 사유',evidence:'가상 E1',result:'가상 결과',conclusion:'가상 결론'};}
-test('three scenario outcomes are preserved',()=>{assert.deepEqual(cases.map(c=>c.signals.map(s=>s.flag)),[[true,true,true,true,true],[false,false,false,false,false],[null,null,null,null,null]]);});
+test('three scenario outcomes are preserved',()=>{assert.deepEqual(cases.slice(0,3).map(c=>c.signals.map(s=>s.flag)),[[true,true,true,true,true],[false,false,false,false,false],[null,null,null,null,null]]);});
 test('fresh records do not fabricate results',()=>{const {demo}=setup();assert.match(demo.exportText('risk'),/실제 수행 결과: 미입력/);});
 test('records survive a new engine instance',()=>{const {demo,storage}=setup();demo.save(input(demo));assert.equal(createDemo(cases,storage).read().records['risk:cash'].result,'가상 결과');});
 test('history retains the saved actor and payload',()=>{const {demo}=setup();demo.save(input(demo));assert.equal(demo.read().history[0].actor,'A');assert.equal(JSON.parse(demo.read().history[0].payload).evidence,'가상 E1');});

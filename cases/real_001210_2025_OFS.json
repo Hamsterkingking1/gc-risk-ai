@@ -1,0 +1,91 @@
+{
+  "id": "real_001210_2025_OFS",
+  "name": "금호전기",
+  "real": true,
+  "stock_code": "001210",
+  "corp_code": "00106395",
+  "fs_div": "OFS",
+  "fs_label": "별도",
+  "unit": "백만원",
+  "years": [
+    2023,
+    2024,
+    2025
+  ],
+  "profit": [
+    -15775,
+    -11453,
+    -1343
+  ],
+  "cash": [
+    -1197,
+    262,
+    4268
+  ],
+  "assets": 17334,
+  "liabilities": 14744,
+  "debt": 2997,
+  "due": 2997,
+  "wording": true,
+  "wording_detail": {
+    "prior_year": 2024,
+    "prior_text": "emphs_matter: 계속기업 관련 중요한 불확실성",
+    "current_flag": false,
+    "current_text": "",
+    "current_opinion": "적정의견",
+    "auditor": "한울회계법인"
+  },
+  "rcept_nos": {
+    "2023": "20240320001009",
+    "2024": "20250318000723",
+    "2025": "20260318001105"
+  },
+  "accounts_used": {
+    "2023": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "유동 차입금",
+      "cur_lt_borrow": null,
+      "cur_bonds": "유동성사채",
+      "lt_borrow": "사채및장기차입금",
+      "bonds": null
+    },
+    "2024": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "유동 차입금(사채 포함)",
+      "cur_lt_borrow": null,
+      "cur_bonds": "유동성사채",
+      "lt_borrow": "사채및장기차입금",
+      "bonds": null
+    },
+    "2025": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "유동 차입금(사채 포함)",
+      "cur_lt_borrow": null,
+      "cur_bonds": "유동성사채",
+      "lt_borrow": null,
+      "bonds": null
+    }
+  },
+  "sources": [
+    "OpenDART 재무제표(별도) / 2023 사업보고서 20240320001009, 2024 사업보고서 20250318000723, 2025 사업보고서 20260318001105",
+    "OpenDART 재무제표(별도) / 2023 사업보고서 20240320001009, 2024 사업보고서 20250318000723, 2025 사업보고서 20260318001105",
+    "OpenDART 재무상태표(별도) / 2025 사업보고서 20260318001105",
+    "OpenDART 재무상태표(별도) 차입금·사채 계정 합산 / 2025 사업보고서 20260318001105",
+    "OpenDART 회계감사인의 명칭 및 감사의견 / 2024 사업보고서 (당기 참고: 관련 문구 없음)"
+  ],
+  "links": {
+    "2023": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20240320001009",
+    "2024": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250318000723",
+    "2025": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001105"
+  },
+  "fetched_at": "2026-10-19T11:58:16+00:00"
+}

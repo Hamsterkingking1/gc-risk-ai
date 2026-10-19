@@ -1,0 +1,91 @@
+{
+  "id": "real_011810_2025_OFS",
+  "name": "STX",
+  "real": true,
+  "stock_code": "011810",
+  "corp_code": "00138297",
+  "fs_div": "OFS",
+  "fs_label": "별도",
+  "unit": "백만원",
+  "years": [
+    2023,
+    2024,
+    2025
+  ],
+  "profit": [
+    -53737,
+    -45378,
+    -182310
+  ],
+  "cash": [
+    -38002,
+    -4362,
+    25498
+  ],
+  "assets": 132479,
+  "liabilities": 400097,
+  "debt": 274284,
+  "due": 270670,
+  "wording": true,
+  "wording_detail": {
+    "prior_year": 2024,
+    "prior_text": "emphs_matter: 감사의견에는 영향을 미치지 않는 사항으로서, 이용자는 계속기업 관련 중요한 불확실성과 관련하여 재무제표에 대한 주석30에 주의를 기울여야 할 필요가 있습니다. 우리의 의견은 이 사항으로부터 영향을 받지 아니합니다.",
+    "current_flag": false,
+    "current_text": "",
+    "current_opinion": "의견거절",
+    "auditor": "삼정회계법인"
+  },
+  "rcept_nos": {
+    "2023": "20240321001859",
+    "2024": "20250320001714",
+    "2025": "20260323001638"
+  },
+  "accounts_used": {
+    "2023": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "단기차입금",
+      "cur_lt_borrow": "유동성장기부채",
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": null
+    },
+    "2024": {
+      "profit": "당기순손실",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "단기차입금",
+      "cur_lt_borrow": "유동성장기부채",
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": null
+    },
+    "2025": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "유동 차입금(사채 포함)",
+      "cur_lt_borrow": "비유동차입금(사채 포함)의 유동성 대체 부분",
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": null
+    }
+  },
+  "sources": [
+    "OpenDART 재무제표(별도) / 2023 사업보고서 20240321001859, 2024 사업보고서 20250320001714, 2025 사업보고서 20260323001638",
+    "OpenDART 재무제표(별도) / 2023 사업보고서 20240321001859, 2024 사업보고서 20250320001714, 2025 사업보고서 20260323001638",
+    "OpenDART 재무상태표(별도) / 2025 사업보고서 20260323001638",
+    "OpenDART 재무상태표(별도) 차입금·사채 계정 합산 / 2025 사업보고서 20260323001638",
+    "OpenDART 회계감사인의 명칭 및 감사의견 / 2024 사업보고서 (당기 참고: 관련 문구 없음)"
+  ],
+  "links": {
+    "2023": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20240321001859",
+    "2024": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250320001714",
+    "2025": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260323001638"
+  },
+  "fetched_at": "2026-10-19T11:58:18+00:00"
+}

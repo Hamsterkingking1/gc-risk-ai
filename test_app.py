@@ -82,5 +82,8 @@ class AuditTests(unittest.TestCase):
         sigs=app.signals(loaded[0])
         self.assertEqual([s['flag'] for s in sigs],[True]*5)
         self.assertIn('계속기업 관련 중요한 불확실성',sigs[4]['value'])
+        self.assertTrue(all(s.get('team_tasks') and s.get('procedure_templates') for s in sigs))
+        custom=app.add_custom_case({'name':'직접입력기업','fs_label':'연결','profit_2023':'-10','profit_2024':'-20','profit_2025':'-30','cash_2023':'10','cash_2024':'20','cash_2025':'30','assets':'900','liabilities':'1000','due':'600','debt':'1000','wording':'true'})
+        self.assertEqual([s['flag'] for s in custom['signals']],[True,False,True,True,True])
 
 if __name__=='__main__': unittest.main()

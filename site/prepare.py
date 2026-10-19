@@ -19,6 +19,7 @@ html=html.replace('로컬 시제품 v0.1 · 데이터는 이 컴퓨터에 저장
 html=html.replace('<script>','<script src="./demo-engine.js"></script>\n<script>\nlet demo;')
 html=html.replace("async function load(){const r=await fetch('/api/state');if(!r.ok)throw Error('자료를 불러올 수 없습니다.');state=await r.json()}","async function load(){if(!demo){const r=await fetch('./cases.json');if(!r.ok)throw Error('시연 자료를 불러올 수 없습니다.');demo=createAuditDemo(await r.json(),localStorage);}state=demo.read()}")
 html=html.replace("await fetch('/api/save'","await demo.request('/api/save'")
+html=html.replace("await fetch('/api/custom-case'","await demo.request('/api/custom-case'")
 html=html.replace("await fetch('/api/export?case='","await demo.request('/api/export?case='")
 assert "fetch('/api/" not in html
 (root/'dist/index.html').write_text(html,encoding='utf-8')

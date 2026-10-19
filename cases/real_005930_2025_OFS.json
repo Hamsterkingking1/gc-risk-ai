@@ -1,0 +1,91 @@
+{
+  "id": "real_005930_2025_OFS",
+  "name": "삼성전자",
+  "real": true,
+  "stock_code": "005930",
+  "corp_code": "00126380",
+  "fs_div": "OFS",
+  "fs_label": "별도",
+  "unit": "백만원",
+  "years": [
+    2023,
+    2024,
+    2025
+  ],
+  "profit": [
+    25397099,
+    23582565,
+    33686601
+  ],
+  "cash": [
+    34455084,
+    52491497,
+    68733956
+  ],
+  "assets": 101439429,
+  "liabilities": 72935381,
+  "debt": 39050680,
+  "due": 15644459,
+  "wording": false,
+  "wording_detail": {
+    "prior_year": 2024,
+    "prior_text": "",
+    "current_flag": false,
+    "current_text": "",
+    "current_opinion": "적정의견",
+    "auditor": "삼정회계법인"
+  },
+  "rcept_nos": {
+    "2023": "20240312000736",
+    "2024": "20250311001085",
+    "2025": "20260310002820"
+  },
+  "accounts_used": {
+    "2023": {
+      "profit": "당기순이익(손실)",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "단기차입금",
+      "cur_lt_borrow": "유동성장기부채",
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": "사채"
+    },
+    "2024": {
+      "profit": "당기순이익",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "단기차입금",
+      "cur_lt_borrow": "유동성장기부채",
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": "사채"
+    },
+    "2025": {
+      "profit": "당기순이익",
+      "cash": "영업활동현금흐름",
+      "assets": "유동자산",
+      "liabilities": "유동부채",
+      "st_borrow": "단기차입금",
+      "cur_lt_borrow": "유동성장기부채",
+      "cur_bonds": null,
+      "lt_borrow": "장기차입금",
+      "bonds": "사채"
+    }
+  },
+  "sources": [
+    "OpenDART 재무제표(별도) / 2023 사업보고서 20240312000736, 2024 사업보고서 20250311001085, 2025 사업보고서 20260310002820",
+    "OpenDART 재무제표(별도) / 2023 사업보고서 20240312000736, 2024 사업보고서 20250311001085, 2025 사업보고서 20260310002820",
+    "OpenDART 재무상태표(별도) / 2025 사업보고서 20260310002820",
+    "OpenDART 재무상태표(별도) 차입금·사채 계정 합산 / 2025 사업보고서 20260310002820",
+    "OpenDART 회계감사인의 명칭 및 감사의견 / 2024 사업보고서 (당기 참고: 관련 문구 없음)"
+  ],
+  "links": {
+    "2023": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20240312000736",
+    "2024": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250311001085",
+    "2025": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310002820"
+  },
+  "fetched_at": "2026-10-19T11:58:14+00:00"
+}
