@@ -1,6 +1,9 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8765" ^| findstr "LISTENING"') do (
+  taskkill /f /pid %%a >nul 2>nul
+)
 where py >nul 2>nul
 if %errorlevel% equ 0 (
   py -3 app.py
