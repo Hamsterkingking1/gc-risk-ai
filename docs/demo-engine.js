@@ -1,5 +1,6 @@
 (function (root) {
   'use strict';
+  const quality=typeof module!=='undefined'?require('./quality.js'):root.GCQuality;
   const FIELDS=['performer','reviewer','requests','procedure','reason','evidence','result','conclusion','unresolved','review_note','status'];
   const STATUSES=['미착수','자료 요청','수행 중','검토 요청','검토 완료'];
   const KEY='gc-audit-demo-v1';
@@ -114,13 +115,13 @@
     values.push([dRatio===null?null:dRatio>=50, dRatio===null?'계산 보류':`${fmt(due)} ÷ ${fmt(debt)} × 100 = ${dRatio.toFixed(1)}%`]);
     const w=c.wording;
     values.push([w===undefined?null:w, w===null||w===undefined?'원문 미확보':`전기 감사보고서: ${w?'관련 문구 있음':'관련 문구 없음'}`]);
-    return BASE_RULES.map((r,i)=>({
+    return quality.enrich(c, BASE_RULES.map((r,i)=>({
       ...r,
       flag:values[i][0],
       value:values[i][1],
       source:`사용자 직접 입력 재무제표 / ${c.name} / ${i<2?'2023~2025년 손익·현금흐름표':i<4?'2025년 재무상태·차입금 명세':'전기 감사보고서 강조사항 여부'}`,
       standard_status:'공식 적용본 대조 전 · 기준 연결 보류'
-    }));
+    })));
   }
 
   function createDemo(baseCases, storage) {
@@ -134,7 +135,7 @@
         const raw=storage.getItem(CUSTOM_KEY);
         if(raw) custom=JSON.parse(raw)||[];
       } catch { custom=[]; }
-      return [...clone(baseCases), ...custom.map(c=>({...c,signals:computeSignals(c)}))];
+      return [...clone(baseCases).map(c=>({...c,signals:quality.enrich(c,c.signals)})), ...custom.map(c=>({...c,signals:computeSignals(c)}))];
     }
     function read() {
       const raw=storage.getItem(KEY);
@@ -144,13 +145,17 @@
       if(!saved||!saved.records||!Array.isArray(saved.history))throw Error('저장 기록 형식이 올바르지 않습니다.');
       const cases=allCases();
       const records={};
-      for(const c of cases)for(const s of c.signals)records[c.id+':'+s.id]={...initialRecord(s),...(saved.records[c.id+':'+s.id]||{})};
+      for(const c of cases)for(const s of c.signals){
+        const r={...initialRecord(s),...(saved.records[c.id+':'+s.id]||{})};
+        if(r.rule_version!==quality.VERSION&&r.status==='검토 완료'){r.status='검토 요청';r.needs_rule_review=true;}
+        records[c.id+':'+s.id]=r;
+      }
       return {cases,records,history:saved.history};
     }
     function addCustomCase(input) {
       const name=String(input.name||'').trim();
       if(!name) throw Error('기업명을 입력하세요.');
-      const num=v=>{const s=String(v??'').replace(/,/g,'').trim();if(s===''||s==='-')return null;const n=Number(s);return Number.isFinite(n)?Math.round(n):null;};
+      const num=v=>{const s=String(v??'').trim();if(s===''||s==='-')return null;if(quality.won(s,'백만원')===null)throw Error('금액은 원 단위까지 표현 가능한 숫자로 입력하세요.');return s.replace(/,/g,'');};
       const customCase={
         id:'custom_'+Date.now(),
         name,
@@ -176,19 +181,20 @@
       const cases=allCases();
       const c=cases.find(c=>c.id===data.case_id),s=c?.signals.find(s=>s.id===data.signal_id);
       if(!s)throw Error('알 수 없는 업무 또는 신호입니다.');
-      const p=Object.fromEntries(FIELDS.map(k=>[k,String(data[k]??'').trim()]));
+      const p={...Object.fromEntries(FIELDS.map(k=>[k,String(data[k]??'').trim()])),rule_version:quality.VERSION};
       if(Object.values(p).some(v=>v.length>20000))throw Error('입력 항목은 20,000자 이내로 작성하세요.');
       if(!p.performer||!STATUSES.includes(p.status))throw Error('수행자 이름과 올바른 업무 상태가 필요합니다.');
       if(['검토 요청','검토 완료'].includes(p.status)&&['procedure','reason','evidence','result','conclusion'].some(k=>!p[k]))throw Error('검토 요청 전 절차·선택 이유·증거·수행 결과·결론을 입력하세요.');
       if(p.status==='검토 완료') {
         if(p.unresolved)throw Error('미해결 사항이 남아 있습니다. 보완 후 검토를 완료하세요.');
-        if(s.flag===null)throw Error('기초 자료가 부족한 사례는 이 시제품에서 검토 완료할 수 없습니다.');
+        if(s.flag===null||s.coverage==='partial')throw Error('기초 자료가 부족한 사례는 이 시제품에서 검토 완료할 수 없습니다.');
         if(!p.reviewer||p.reviewer===p.performer||!p.review_note)throw Error('수행자와 다른 검토자 및 검토 의견이 필요합니다.');
       }
       const db=read(),key=c.id+':'+s.id,old=db.records[key];
       if(data.version!==old.version)throw Error('다른 창에서 기록이 변경되었습니다. 새로고침 후 다시 입력하세요.');
       if(p.status==='검토 완료') {
         if(!['검토 요청','검토 완료'].includes(old.status))throw Error('먼저 검토 요청 상태로 저장한 후 검토를 완료하세요.');
+        if(old.rule_version!==quality.VERSION)throw Error('점검 규칙이 변경되었습니다. 검토 요청으로 다시 저장하세요.');
         if(['requests','procedure','reason','evidence','result','conclusion','performer'].some(k=>p[k]!==old[k]))throw Error('검토 대상 내용이 바뀌었습니다. 검토 요청으로 다시 저장하세요.');
       }
       const out={...p,version:old.version+1};
@@ -203,7 +209,7 @@
       if(!c)throw Error('알 수 없는 업무입니다.');
       const labels=['수행자','검토자','요청 자료','선택 절차','선택 이유','증거 참조','실제 수행 결과','작성자 결론','미해결 사항','검토 의견','업무 상태'];
       const lines=['계속기업 검토 조서 초안 — 시연용','가상자료 / 감사판단 및 실제 수행 사실을 증명하는 문서가 아님',`기업: ${c.name} | 2025년 | ${c.fs_label||'별도'} | 금액 단위: ${c.unit||'백만원'}`,'기준 원문: 공식 적용본 대조 전, 연결 보류','AI: 미연결, 고정된 절차 예시 사용','저장 위치: 현재 기기·브라우저 / 팀 공동 기록 아님',''];
-      for(const s of c.signals){const r=db.records[c.id+':'+s.id];lines.push(`[${s.title}] (${s.assignee_role||''})`,`발견: ${s.value}`,`판정: ${s.flag===null?'자료 부족':s.flag?'비정상 · 추가 검토 필요':'정상 · 해당 신호 미검출'}`,`근거: ${s.source}`,`점검 규칙: ${s.rule}`,`참조 기준: ${s.standard_ref||''}`,...FIELDS.map((k,i)=>`${labels[i]}: ${r[k]||'미입력'}`),`저장 버전: ${r.version}`,'');}
+      for(const s of c.signals){const r=db.records[c.id+':'+s.id];lines.push(`[${s.title}] (${s.assignee_role||''})`,`발견: ${s.value}`,`판정: ${s.flag===null?'자료 부족':s.flag?'신호 발견 · 추가 검토 필요':'해당 신호 미검출'}`,`근거: ${s.source}`,`점검 규칙: ${s.rule}`,`참조 기준: ${s.standard_ref||''}`,`규칙 버전: ${s.rule_version}`,`자료 확인 사항: ${(s.data_warnings||[]).join(' / ')}`,`근거 상세: ${JSON.stringify(s.provenance)}`,...FIELDS.map((k,i)=>`${labels[i]}: ${r[k]||'미입력'}`),`저장 버전: ${r.version}`,'');}
       return lines.join('\n');
     }
     async function request(path, options={}) {
@@ -220,3 +226,4 @@
   if(typeof module!=='undefined'&&module.exports)module.exports={createDemo};
   else root.createAuditDemo=createDemo;
 })(typeof window!=='undefined'?window:globalThis);
+
