@@ -1,10 +1,12 @@
 """Build the install-free browser demo from the tested Python prototype."""
+import sys
 import importlib.util
 import json
 from pathlib import Path
 
 root=Path(__file__).resolve().parent
 source=root.parent  # repo root holds app.py / index.html
+sys.path.insert(0,str(source))
 spec=importlib.util.spec_from_file_location('gc_source',source/'app.py')
 app=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(app)
@@ -16,8 +18,8 @@ html=html.replace('GC Audit Assist · 계속기업 검토','GC Audit Assist · �
 html=html.replace('FIRST REVIEW PROTOTYPE','ONLINE TEAM DEMO')
 html=html.replace('OpenDART 공시 연동 모드','설치 없는 온라인 시연')
 html=html.replace('<div class="notice">','<div class="notice">입력은 현재 기기·브라우저에만 저장됩니다. 다른 팀원에게 보이지 않으며 브라우저 데이터를 삭제하면 사라집니다.<br>')
-html=html.replace('로컬 시제품 v0.1 · 데이터는 이 컴퓨터에 저장됩니다. 사용자 인증·다중 사용자 권한·실제 증거 첨부는 후속 범위입니다.','온라인 시연 v0.2 · 기록은 현재 브라우저에 저장됩니다. 팀 공동 편집·실제 증거 첨부는 후속 범위입니다. <a href="./guide.html">팀 안내와 다음 작업</a>')
-html=html.replace('<script>',f'<script src="./demo-engine.js"></script>\n<script>\nwindow.INLINE_CASES={cases_json};\nlet demo;')
+html=html.replace('로컬 시제품 v0.1 · 데이터는 이 컴퓨터에 저장됩니다. 사용자 인증·다중 사용자 권한·실제 증거 첨부는 후속 범위입니다.','온라인 시연 v0.3 · 기록은 현재 브라우저에 저장됩니다. 팀 공동 편집·실제 증거 첨부는 후속 범위입니다. <a href="./guide.html">팀 안내와 다음 작업</a>')
+html=html.replace('<script>',f'<script src="./quality.js"></script>\n<script src="./demo-engine.js"></script>\n<script>\nwindow.INLINE_CASES={cases_json};\nlet demo;')
 html=html.replace("async function load(){const r=await fetch('/api/state');if(!r.ok)throw Error('자료를 불러올 수 없습니다.');state=await r.json()}","async function load(){if(!demo){let cs=window.INLINE_CASES;if(!cs){const r=await fetch('./cases.json');if(!r.ok)throw Error('시연 자료를 불러올 수 없습니다.');cs=await r.json();}demo=createAuditDemo(cs,localStorage);}state=demo.read()}")
 html=html.replace("await fetch('/api/save'","await demo.request('/api/save'")
 html=html.replace("await fetch('/api/custom-case'","await demo.request('/api/custom-case'")
@@ -30,4 +32,5 @@ docs.mkdir(exist_ok=True)
 for item in (root/'dist').iterdir():
     if item.is_file():
         shutil.copy2(item, docs/item.name)
+
 

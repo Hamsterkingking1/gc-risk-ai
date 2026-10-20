@@ -1,16 +1,7 @@
-# 계속기업 감사보조 · 링크 접속용 시연
+# GC Audit Assist 웹 시연 v0.3
 
-기존 Python/SQLite 시제품의 화면과 가상자료를 바탕으로 만든 설치 없는 온라인 시연판입니다.
+저장소 루트에서 `python site/prepare.py`를 실행하면 검증한 사례와 화면을 `site/dist` 및 `docs`에 생성합니다.
 
-- 가상기업 3개, 5개 신호와 계산 근거, 고정 절차 예시
-- 수행·검토 기록, 검토 완료 조건 확인, TXT 조서 내보내기
-- 기록은 방문자 기기·브라우저의 localStorage에만 저장
-- 팀원끼리의 공동 데이터 저장, DART, 생성형 AI, 공식 기준 원문, 파일 업로드는 미구현
+`node --test site/demo.test.cjs`로 브라우저 저장·검토 흐름을 검증합니다. 실제 생성형 AI는 연결하지 않았고, 온라인 기록은 각 브라우저에만 저장됩니다.
 
-운영 데이터·인증키·기존 SQLite DB는 포함하지 않습니다. 브라우저 기록 삭제나 다른 기기에서는 작성 기록이 유지되지 않습니다.
-
-`dist/`가 배포 결과물입니다. `prepare.py`는 인접한 `gc-audit/` 원본에서 화면·가상 데이터를 생성합니다. 독립적인 배포에는 이미 생성된 dist를 사용할 수 있습니다.
-
-검증: `node --test demo.test.cjs`
-
-원본 코드와 팀 문서: https://github.com/Hamsterkingking1/gc-risk-ai (비공개 저장소로 별도 접근 권한 필요)
+금액·자료 품질 개선 상세는 루트의 IMPROVEMENTS.md를 참조하세요.
