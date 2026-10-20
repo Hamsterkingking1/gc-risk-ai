@@ -11,6 +11,7 @@
 결과는 cases/real_<종목코드>_<연도>_<OFS|CFS>.json 으로 저장되며 app.py가 자동으로 불러옵니다.
 스냅샷에는 공개 공시 수치와 접수번호만 들어가고 인증키는 들어가지 않습니다.
 """
+from quality import won, digest, DEBT_KEYS
 import argparse
 import io
 import json
@@ -95,41 +96,37 @@ def corp_list():
 
 
 def to_number(text):
-    text = (text or '').replace(',', '').strip()
-    if text in ('', '-'):
-        return None
-    neg = text.startswith('(') and text.endswith(')')
-    try:
-        value = int(float(text.strip('()')))
-    except ValueError:
-        return None
-    return -value if neg else value
+    return won(text)
 
 
 def pick(rows, key):
     """계정 하나를 찾아 (원 단위 금액, 사용한 계정명)을 돌려줍니다. 못 찾으면 (None, None)."""
     divs, ids, names = ACCOUNTS[key]
     pool = [r for r in rows if r.get('sj_div') in divs]
-    for r in pool:
-        if r.get('account_id') in ids:
-            v = to_number(r.get('thstrm_amount'))
-            if v is not None:
-                return v, r.get('account_nm')
-    norm = lambda s: (s or '').replace(' ', '')
-    for name in names:
-        for r in pool:
-            if norm(r.get('account_nm')) == norm(name):
-                v = to_number(r.get('thstrm_amount'))
-                if v is not None:
-                    return v, r.get('account_nm')
-    return None, None
+    matches = [r for r in pool if r.get('account_id') in ids]
+    if not matches:
+        norm = lambda v: (v or '').replace(' ', '')
+        matches = [r for r in pool if norm(r.get('account_nm')) in {norm(n) for n in names}]
+    if not matches:
+        return None, None
+    values = [to_number(r.get('thstrm_amount')) for r in matches]
+    # Missing or conflicting candidate rows are not silently resolved by order.
+    if None in values or len(set(values)) != 1:
+        return None, None
+    return values[0], matches[0].get('account_nm')
 
 
 def financials(corp_code, year, fs):
     rows = get_json('fnlttSinglAcntAll.json', corp_code=corp_code, bsns_year=str(year), reprt_code=ANNUAL, fs_div=fs)
     if not rows:
         return None
-    out = {'rcept_no': rows[0].get('rcept_no'), 'accounts': {}}
+    out = {'rcept_no': rows[0].get('rcept_no'), 'accounts': {}, 'raw_rows':rows, 'sha256':digest(rows)}
+    if any(r.get('corp_code', corp_code) != corp_code
+           or str(r.get('bsns_year', year)) != str(year)
+           or r.get('fs_div', fs) != fs for r in rows):
+        raise ValueError('DART 응답 기업·연도·연결/별도 불일치')
+    if len({r.get('rcept_no') for r in rows}) != 1:
+        raise ValueError('서로 다른 접수번호가 섞인 DART 응답')
     for key in ACCOUNTS:
         value, name = pick(rows, key)
         out['accounts'][key] = {'won': value, 'account_nm': name}
@@ -144,7 +141,7 @@ def auditor_opinion(corp_code, year):
 
 
 def mil(won):
-    return None if won is None else round(won / 1_000_000)
+    return None if won is None else str(__import__('decimal').Decimal(won) / 1_000_000)
 
 
 def build(stock, year, fs):
@@ -165,7 +162,10 @@ def build(stock, year, fs):
     due_parts = [acc(year, k) for k in ('st_borrow', 'cur_lt_borrow', 'cur_bonds')]
     long_parts = [acc(year, k) for k in ('lt_borrow', 'bonds')]
     due = sum(v for v in due_parts if v is not None) if any(v is not None for v in due_parts) else None
-    debt = None if due is None else due + sum(v for v in long_parts if v is not None)
+    debt_missing = [k for k in DEBT_KEYS if acc(year, k) is None]
+    debt = None if debt_missing else sum(due_parts + long_parts)
+    if debt_missing:
+        due = None
 
     op_cur = auditor_opinion(corp['corp_code'], year)
     op_prev = auditor_opinion(corp['corp_code'], year - 1)
@@ -191,6 +191,16 @@ def build(stock, year, fs):
         'fs_div': fs,
         'fs_label': label,
         'unit': unit,
+        'schema_version':'gc-case-2',
+        'amounts_won': {
+            'profit':[None if acc(y,'profit') is None else str(acc(y,'profit')) for y in years],
+            'cash':[None if acc(y,'cash') is None else str(acc(y,'cash')) for y in years],
+            'assets':None if acc(year,'assets') is None else str(acc(year,'assets')),
+            'liabilities':None if acc(year,'liabilities') is None else str(acc(year,'liabilities')),
+            'debt':None if debt is None else str(debt), 'due':None if due is None else str(due)},
+        'debt_missing':debt_missing,
+        'source_hashes':{str(y):fin[y]['sha256'] for y in years if fin[y]},
+        'raw_financials':{str(y):fin[y]['raw_rows'] for y in years if fin[y]},
         'years': years,
         'profit': [mil(acc(y, 'profit')) for y in years],
         'cash': [mil(acc(y, 'cash')) for y in years],
@@ -247,3 +257,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

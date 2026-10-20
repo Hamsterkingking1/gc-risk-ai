@@ -1,5 +1,6 @@
 """Local & DART-backed Going Concern Audit Workflow Prototype. Python standard library only."""
 import json
+from quality import enrich, won, VERSION
 import os
 import sqlite3
 import threading
@@ -26,6 +27,9 @@ def load_real_cases(folder=ROOT / 'cases'):
         try:
             case = json.loads(path.read_text(encoding='utf-8'))
             if all(k in case for k in ('id', 'name', 'years', 'profit', 'cash', 'assets', 'liabilities', 'debt', 'due', 'wording')):
+                if case.get('schema_version') == 'gc-case-2':
+                    from verify_snapshot import verify
+                    case['integrity_errors'] = verify(case)
                 out.append(case)
         except (OSError, ValueError):
             continue
@@ -139,32 +143,10 @@ FIELDS = ('performer','reviewer','requests','procedure','reason','evidence','res
 STATUSES = ('미착수','자료 요청','수행 중','검토 요청','검토 완료')
 
 def signals(case):
-    values = []
-    unit = case.get('unit', '백만원')
-    for key in ('profit','cash'):
-        xs = case[key]
-        values.append((None if any(x is None for x in xs) else all(x < 0 for x in xs), ' / '.join(f'{year}: ' + ('자료 없음' if x is None else f'{x:,}') for year,x in zip(case['years'],xs)) + f' ({unit})'))
-    a,b = case['assets'],case['liabilities']
-    ratio = a/b*100 if a is not None and b is not None and b > 0 else None
-    values.append((None if ratio is None else ratio < 100, '계산 보류' if ratio is None else f'{a:,} ÷ {b:,} × 100 = {ratio:.1f}%'))
-    a,b = case['due'],case['debt']
-    ratio = a/b*100 if a is not None and b is not None and b > 0 and 0 <= a <= b else None
-    values.append((None if ratio is None else ratio >= 50, '계산 보류' if ratio is None else f'{a:,} ÷ {b:,} × 100 = {ratio:.1f}%'))
-    if case.get('real'):
-        d = case.get('wording_detail', {})
-        text = '감사의견 자료 미확보' if case['wording'] is None else f'{d.get("prior_year")}년 감사보고서: ' + ('계속기업 관련 문구 있음' if case['wording'] else '관련 문구 없음')
-        if d.get('prior_text'):
-            text += f' — {d["prior_text"][:200]}'
-        values.append((case['wording'], text))
-        sources = case['sources']
-    else:
-        values.append((case['wording'], '원문 미확보' if case['wording'] is None else '가상 전기 보고서: ' + ('관련 문구 있음' if case['wording'] else '관련 문구 없음')))
-        sources = [f'가상 데이터 / {case["name"]} / ' + ('2023~2025년 손익·현금흐름표' if i<2 else '2025년 재무상태·차입금 명세' if i<4 else '2024년 보고서 메타데이터') for i in range(5)]
-    out = [{**r, 'flag':v[0], 'value':v[1], 'source':sources[i], 'standard_status':'공식 적용본 대조 전 · 기준 연결 보류'} for i,(r,v) in enumerate(zip(RULES,values))]
-    if case.get('real'):
-        out[3]['rule'] = '(단기차입금 + 유동성장기차입금 + 유동성사채) ÷ (위 합계 + 장기차입금 + 사채) ≥ 50% · 공시 계정 기준 근사치'
-        out[4]['rule'] = '전기 사업보고서의 감사의견 항목(강조사항·특기사항 등)에 "계속기업"·"존속능력"·"중요한 불확실성" 포함 여부 · 키워드 검색이며 원문 확인 필요'
-    return out
+    sources = case.get('sources', [])
+    out = [{**r, 'source':sources[i] if i < len(sources) else '입력 자료 / 원문 대조 필요',
+            'standard_status':'공식 적용본 대조 전 · 기준 연결 보류'} for i,r in enumerate(RULES)]
+    return enrich(case, out)
 
 @contextmanager
 def connect():
@@ -195,13 +177,12 @@ def add_custom_case(data):
     if not name:
         raise ValueError('기업명을 입력하세요.')
     def num(v):
-        s = str(v if v is not None else '').replace(',', '').strip()
-        if s in ('', '-'):
+        if v is None or str(v).strip() in ('', '-'):
             return None
-        try:
-            return round(float(s))
-        except ValueError:
-            return None
+        n = won(v, '백만원')
+        if n is None:
+            raise ValueError('금액은 원 단위까지 표현 가능한 숫자로 입력하세요. (백만원 기준 소수 6자리)')
+        return str(v).replace(',', '').strip()
     w = data.get('wording')
     case = dict(
         id=f'custom_{int(datetime.now(timezone.utc).timestamp()*1000)}',
@@ -225,7 +206,10 @@ def add_custom_case(data):
 def read_record(c, case_id, signal_id):
     row=c.execute('SELECT payload,version FROM records WHERE case_id=? AND signal_id=?',(case_id,signal_id)).fetchone()
     if row:
-        return {**json.loads(row['payload']), 'version':row['version']}
+        record = {**json.loads(row['payload']), 'version':row['version']}
+        if record.get('rule_version') != VERSION and record.get('status') == '검토 완료':
+            record.update(status='검토 요청', needs_rule_review=True)
+        return record
     rule=next(r for r in RULES if r['id']==signal_id)
     return {**dict.fromkeys(FIELDS,''), 'requests':rule['requests'],'procedure':rule['procedure'],'status':'미착수','version':0}
 
@@ -235,6 +219,7 @@ def save_record(data):
     if case is None or signal_id not in {r['id'] for r in RULES}:
         raise ValueError('알 수 없는 업무 또는 신호입니다.')
     payload={k:str(data.get(k,'')).strip() for k in FIELDS}
+    payload['rule_version'] = VERSION
     if any(len(v)>20000 for v in payload.values()):
         raise ValueError('입력 항목은 20,000자 이내로 작성하세요.')
     if payload['status'] not in STATUSES or not payload['performer']:
@@ -246,7 +231,8 @@ def save_record(data):
     if payload['status']=='검토 완료':
         if payload['unresolved']:
             raise ValueError('미해결 사항이 남아 있습니다. 보완 후 검토를 완료하세요.')
-        if next(s for s in signals(case) if s['id']==signal_id)['flag'] is None:
+        selected = next(s for s in signals(case) if s['id']==signal_id)
+        if selected['flag'] is None or selected.get('coverage') == 'partial':
             raise ValueError('기초 자료가 부족한 사례는 이 시제품에서 검토 완료할 수 없습니다.')
         if not payload['reviewer'] or payload['reviewer']==payload['performer'] or not payload['review_note']:
             raise ValueError('수행자와 다른 검토자 및 검토 의견이 필요합니다.')
@@ -257,6 +243,8 @@ def save_record(data):
             raise ValueError('다른 창에서 기록이 변경되었습니다. 새로고침 후 다시 입력하세요.')
         if payload['status']=='검토 완료' and old['status'] not in ('검토 요청','검토 완료'):
             raise ValueError('먼저 검토 요청 상태로 저장한 후 검토를 완료하세요.')
+        if payload['status']=='검토 완료' and old.get('rule_version') != VERSION:
+            raise ValueError('점검 규칙이 변경되었습니다. 검토 요청으로 다시 저장하세요.')
         substantive=('requests','procedure','reason','evidence','result','conclusion','performer')
         if payload['status']=='검토 완료' and any(payload[k]!=old[k] for k in substantive):
             raise ValueError('검토 대상 내용이 바뀌었습니다. 검토 요청으로 다시 저장하세요.')
@@ -277,7 +265,7 @@ def export_text(case_id):
     with connect() as c:
         for s in signals(case):
             r=read_record(c,case_id,s['id'])
-            lines += [f'[{s["title"]}] ({s.get("assignee_role","")})',f'발견: {s["value"]}',f'판정: {"자료 부족" if s["flag"] is None else "비정상 · 추가 검토 필요" if s["flag"] else "정상 · 해당 신호 미검출"}',f'근거: {s["source"]}',f'점검 규칙: {s["rule"]}',f'참조 기준: {s.get("standard_ref","")}']
+            lines += [f'[{s["title"]}] ({s.get("assignee_role","")})',f'발견: {s["value"]}',f'판정: {"자료 부족" if s["flag"] is None else "신호 발견 · 추가 검토 필요" if s["flag"] else "해당 신호 미검출"}',f'근거: {s["source"]}',f'점검 규칙: {s["rule"]}',f'참조 기준: {s.get("standard_ref","")}', f'계산 규칙 버전: {s["rule_version"]}', f'자료 확인 사항: {" / ".join(s["data_warnings"]) or "없음"}', f'근거 상세: {json.dumps(s["provenance"], ensure_ascii=False)}']
             lines += [f'{labels[k]}: {r[k] or "미입력"}' for k in FIELDS]
             lines += [f'저장 버전: {r["version"]}','']
     return '\n'.join(lines)
@@ -334,3 +322,4 @@ if __name__=='__main__':
     try: server.serve_forever()
     except KeyboardInterrupt: pass
     finally: server.server_close()
+
