@@ -1,6 +1,6 @@
 (function(root){
   'use strict';
-  const VERSION='gc-risk-quality-1';
+  const VERSION='gc-risk-quality-2';
   function won(value,unit='원'){
     if(value===null||value===undefined||typeof value==='boolean')return null;
     let s=String(value).trim();
@@ -12,6 +12,21 @@
     const n=(BigInt(parts[0])*denom+BigInt(fraction||'0'))*scale;
     return n%denom===0n?(neg?-n/denom:n/denom):null;
   }
+  function debtValues(c,year){
+    const y=String(year),r=c.debt_reconciliation?.[y],s=c.report_extracts?.[y];
+    if(!r?.coverage_note||r.scope!=='별도 차입금·사채 장부금액 / 리스부채 제외'||!s||s.receipt!==c.rcept_nos?.[y]||s.fs_div!==c.fs_div||!s.filename?.endsWith('_00760.xml'))return null;
+    const totals={current:0n,noncurrent:0n},seen=new Set();
+    for(const p of r.parts||[]){
+      if(!Object.hasOwn(totals,p.bucket)||!Number.isInteger(p.line_index)||p.line_index<0||!Number.isInteger(p.column)||p.column<1||!['원','천원','백만원'].includes(p.unit)||![1,-1].includes(p.sign??1))return null;
+      const id=p.line_index+':'+p.column;if(seen.has(id))return null;seen.add(id);
+      const token=s.note_lines?.[p.line_index]?.split(' | ')[p.column]?.trim();
+      if(token===undefined)return null;
+      const v=['-','－','0'].includes(token)?0n:won(token.replace(/^\(|\)$/g,''),p.unit);
+      if(v===null)return null;
+      totals[p.bucket]+=BigInt(p.sign??1)*v;
+    }
+    return !seen.size||totals.current<0n||totals.noncurrent<0n?null:[totals.current,totals.current+totals.noncurrent];
+  }
   function enrich(c,signals){
     const ys=c.years||[],valid=ys.length===3&&ys.every((y,i)=>Number.isInteger(y)&&y===ys[0]+i);
     const exact=c.amounts_won;
@@ -19,12 +34,15 @@
     const series=k=>{const v=vals(k);return valid&&v.length===3?v:[null,null,null];};
     const scalar=k=>{const v=vals(k);return valid&&v.length===1?v[0]:null;};
     const profit=series('profit'),cash=series('cash'),a=scalar('assets'),b=scalar('liabilities');
-    let due=scalar('due'),debt=scalar('debt'),warnings=[];
+    let due=scalar('due'),debt=scalar('debt'),warnings=[...(c.source_warnings||[])];
     if(c.real&&!exact)warnings.push('기존 백만원 반올림 자료: 원 단위 재수집 전에는 작은 금액·경계값 검증이 제한됩니다.');
     if(!valid)warnings.push('연속된 3개 사업연도를 확인할 수 없습니다.');
     if(c.custom)warnings.push('사용자 입력 자료: 공시 원문과 단위·연결/별도 기준을 대조해야 합니다.');
     let missing=[];
-    if(c.real){
+    if(c.real&&c.debt_reconciliation){
+      const pair=debtValues(c,ys.at(-1));
+      if(pair)[due,debt]=pair;else{due=debt=null;missing=['원문 대조표 불완전'];}
+    }else if(c.real){
       const ac=c.accounts_used?.[ys.at(-1)]||{};
       missing=[...new Set(['st_borrow','cur_lt_borrow','cur_bonds','lt_borrow','bonds'].filter(k=>!ac[k]).concat(c.debt_missing||[]))];
       if(missing.length)due=debt=null;
@@ -42,7 +60,7 @@
       ys.map((y,i)=>`${y}: ${fmt(cash[i])}`).join(' / ')+' · '+detail,
       flags[2]===null?'계산 보류: 유동자산·유동부채 확인 필요':`${fmt(a)} ÷ ${fmt(b)} × 100 = ${ratio(a,b)}%`,
       flags[3]===null?'계산 보류: 차입금 구성계정의 누락·범위 확인 필요':`${fmt(due)} ÷ ${fmt(debt)} × 100 = ${ratio(due,debt)}%`,
-      flags[4]===null?'원문 확인 필요':`전기 요약 문구 ${flags[4]?'검출':'미검출'} · 원문 전체 판단 아님`];
+      flags[4]===null?'원문 확인 필요':`${c.audit_by_year?'전기 별도 감사보고서 기업 고유 문구':'전기 요약 문구'} ${flags[4]?'검출':'미검출'}`];
     if(c.integrity_errors?.length){
       warnings.push(...c.integrity_errors);
       for(let i=0;i<4;i++){flags[i]=null;texts[i]='판정 보류: 저장 원본과 금액의 일치 여부를 확인하세요.';}
@@ -52,15 +70,18 @@
         procedure_status:'미검토 제안 · 실제 수행 아님',
         provenance:{company:c.name,years:ys,basis:c.fs_label,unit:c.unit,fetched_at:c.fetched_at,
           receipt_numbers:c.rcept_nos||{},accounts:c.accounts_used||{},source_hashes:c.source_hashes||{},
+          audit_by_year:c.audit_by_year||{},debt_scope:c.debt_reconciliation?.[ys.at(-1)]?.scope,
           review_status:'원문 및 회계적 의미 대조 필요'}};
       if(i===1){r.coverage=cash.includes(null)?'partial':'complete';r.rule='당기 영업현금흐름 < 0 · 최근 2년/3년 연속 음수는 별도 표시';if(cash.includes(null))r.data_warnings.push('비교연도 자료 부족: 연속 음수 여부를 확인하세요.');}
       if(i===4&&c.wording_detail?.prior_text)r.value+=' · '+c.wording_detail.prior_text;
       if(i===3&&missing.length)r.data_warnings.push('미확인 차입금 계정: '+missing.map(k=>({st_borrow:'단기차입금',cur_lt_borrow:'유동성장기차입금',cur_bonds:'유동성사채',lt_borrow:'장기차입금',bonds:'사채'}[k]||k)).join(', '));
+      if(i===3&&c.debt_reconciliation){r.rule='당기 유동 차입금·사채 ÷ 총차입금·사채 ≥ 50% · 리스 제외 장부금액';r.data_warnings.push('주석 표시 단위의 정밀도를 따릅니다. 유동 분류는 계약상 현금 상환일과 다를 수 있습니다.');}
+      if(i===4&&c.audit_by_year)r.rule=`${ys.at(-1)-1}년 별도 감사보고서의 기업 고유 계속기업 사항 · 표준 책임 문구 제외`;
       if(c.custom)r.source='사용자 직접 입력 / '+c.name+' / 원문 대조 전';
       return r;
     });
   }
-  const api={won,enrich,VERSION};
+  const api={won,enrich,VERSION,debtValues};
   if(typeof module!=='undefined')module.exports=api;
   root.GCQuality=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
