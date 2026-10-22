@@ -24,7 +24,8 @@ class AuditTests(unittest.TestCase):
         self.assertTrue(all(c.get('real') for c in self.original_cases))
         self.assertEqual([s['flag'] for s in app.signals(app.SYNTHETIC_CASES[0])],[True]*5)
         self.assertEqual([s['flag'] for s in app.signals(app.SYNTHETIC_CASES[1])],[False]*5)
-        self.assertEqual([s['flag'] for s in app.signals(app.SYNTHETIC_CASES[2])],[None]*5)
+        self.assertEqual([s['flag'] for s in app.signals(app.SYNTHETIC_CASES[2])],[None,True,None,None,None])
+        self.assertEqual(app.signals(app.SYNTHETIC_CASES[2])[1]['coverage'],'partial')
     def test_zero_denominator_and_boundaries(self):
         c=copy.deepcopy(app.CASES[0]);c['liabilities']=0;c['debt']=0
         self.assertIsNone(app.signals(c)[2]['flag']);self.assertIsNone(app.signals(c)[3]['flag'])
@@ -33,7 +34,8 @@ class AuditTests(unittest.TestCase):
         c['profit']=[-1,0,-1];self.assertFalse(app.signals(c)[0]['flag'])
     def test_missing_is_not_zero(self):
         c=copy.deepcopy(app.CASES[0]);c['cash'][1]=None
-        self.assertIsNone(app.signals(c)[1]['flag'])
+        self.assertTrue(app.signals(c)[1]['flag'])
+        self.assertEqual(app.signals(c)[1]['coverage'],'partial')
     def test_save_history_and_reload(self):
         r=app.save_record(self.payload())
         with app.connect() as c:
@@ -84,10 +86,12 @@ class AuditTests(unittest.TestCase):
         loaded=app.load_real_cases(cdir)
         self.assertEqual(len(loaded),1)
         sigs=app.signals(loaded[0])
-        self.assertEqual([s['flag'] for s in sigs],[True]*5)
+        self.assertEqual([s['flag'] for s in sigs],[True,True,True,None,True])
+        self.assertIn('미확인 차입금',sigs[3]['data_warnings'][-1])
         self.assertIn('계속기업 관련 중요한 불확실성',sigs[4]['value'])
         self.assertTrue(all(s.get('team_tasks') and s.get('procedure_templates') for s in sigs))
         custom=app.add_custom_case({'name':'직접입력기업','fs_label':'연결','profit_2023':'-10','profit_2024':'-20','profit_2025':'-30','cash_2023':'10','cash_2024':'20','cash_2025':'30','assets':'900','liabilities':'1000','due':'600','debt':'1000','wording':'true'})
         self.assertEqual([s['flag'] for s in custom['signals']],[True,False,True,True,True])
 
 if __name__=='__main__': unittest.main()
+
