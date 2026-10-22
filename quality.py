@@ -3,8 +3,9 @@ import hashlib
 import json
 import re
 from decimal import Decimal, InvalidOperation, localcontext
+from disclosures import debt_values
 
-VERSION = 'gc-risk-quality-1'
+VERSION = 'gc-risk-quality-2'
 DEBT_KEYS = ('st_borrow', 'cur_lt_borrow', 'cur_bonds', 'lt_borrow', 'bonds')
 
 
@@ -50,7 +51,7 @@ def assess(case):
         v = values(k)
         return v[0] if len(v) == 1 and valid_years else None
     a, b, due, debt = map(scalar, ('assets', 'liabilities', 'due', 'debt'))
-    warnings = []
+    warnings = list(case.get('source_warnings', []))
     if case.get('real') and not exact:
         warnings.append('기존 백만원 반올림 자료: 원 단위 재수집 전에는 작은 금액·경계값 검증이 제한됩니다.')
     if not valid_years:
@@ -58,7 +59,14 @@ def assess(case):
     if case.get('custom'):
         warnings.append('사용자 입력 자료: 공시 원문과 단위·연결/별도 기준을 대조해야 합니다.')
     debt_missing = []
-    if case.get('real'):
+    if case.get('real') and case.get('debt_reconciliation'):
+        reconciled = debt_values(case, years[-1]) if years else None
+        if reconciled:
+            due, debt = reconciled
+        else:
+            due = debt = None
+            debt_missing = ['원문 대조표 불완전']
+    elif case.get('real'):
         accounts = case.get('accounts_used', {}).get(str(years[-1]) if years else '', {})
         debt_missing = [k for k in DEBT_KEYS if not accounts.get(k)]
         debt_missing += case.get('debt_missing', [])
@@ -83,7 +91,7 @@ def assess(case):
         ' / '.join(f'{y}: {fmt(v)}' for y,v in zip(years, cash))+' · '+cash_detail,
         '계산 보류: 유동자산·유동부채 확인 필요' if flags[2] is None else f'{fmt(a)} ÷ {fmt(b)} × 100 = {a/b*100:.2f}%',
         '계산 보류: 차입금 구성계정의 누락·범위 확인 필요' if flags[3] is None else f'{fmt(due)} ÷ {fmt(debt)} × 100 = {due/debt*100:.2f}%',
-        '원문 확인 필요' if flags[4] is None else '전기 요약 문구 '+('검출' if flags[4] else '미검출')+' · 원문 전체 판단 아님',
+        '원문 확인 필요' if flags[4] is None else ('전기 별도 감사보고서 기업 고유 문구 ' if case.get('audit_by_year') else '전기 요약 문구 ')+('검출' if flags[4] else '미검출'),
     ]
     if case.get('wording_detail', {}).get('prior_text'):
         texts[4] += ' · '+case['wording_detail']['prior_text']
@@ -106,6 +114,8 @@ def enrich(case, signals):
             'basis':case.get('fs_label'), 'unit':case.get('unit'), 'fetched_at':case.get('fetched_at'),
             'receipt_numbers':case.get('rcept_nos', {}), 'accounts':case.get('accounts_used', {}),
             'source_hashes':case.get('source_hashes', {}),
+            'audit_by_year':case.get('audit_by_year', {}),
+            'debt_scope':case.get('debt_reconciliation', {}).get(str(case.get('years', [None])[-1]), {}).get('scope'),
             'review_status':'원문 및 회계적 의미 대조 필요'}
         if i == 1:
             s['rule'] = '당기 영업현금흐름 < 0 · 최근 2년/3년 연속 음수는 별도 표시'
@@ -114,6 +124,11 @@ def enrich(case, signals):
                 s['data_warnings'].append('비교연도 자료 부족: 연속 음수 여부를 확인하세요.')
         if i == 3 and q['debt_missing']:
             s['data_warnings'].append('미확인 차입금 계정: '+', '.join(dict(zip(DEBT_KEYS, ('단기차입금','유동성장기차입금','유동성사채','장기차입금','사채'))).get(k,k) for k in q['debt_missing']))
+        if i == 3 and case.get('debt_reconciliation'):
+            s['rule'] = '당기 유동 차입금·사채 ÷ 총차입금·사채 ≥ 50% · 리스 제외 장부금액'
+            s['data_warnings'].append('주석 표시 단위의 정밀도를 따릅니다. 유동 분류는 계약상 현금 상환일과 다를 수 있습니다.')
+        if i == 4 and case.get('audit_by_year'):
+            s['rule'] = f"{case['years'][-1]-1}년 별도 감사보고서의 기업 고유 계속기업 사항 · 표준 책임 문구 제외"
         if case.get('custom'):
             s['source'] = '사용자 직접 입력 / '+case['name']+' / 원문 대조 전'
     return signals

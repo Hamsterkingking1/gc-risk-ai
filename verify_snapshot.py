@@ -5,12 +5,13 @@ Hashes detect accidental changes, not source authenticity or accounting validity
 import json
 import sys
 from pathlib import Path
-from quality import digest, DEBT_KEYS
+from quality import digest, DEBT_KEYS, won
 from dart_fetch import pick
+from disclosures import debt_values, report_wording
 
 
 def verify(case):
-    if case.get('schema_version') != 'gc-case-2':
+    if case.get('schema_version') not in ('gc-case-2', 'gc-case-3'):
         return ['기존 자료: 원 단위 원본 응답 재수집 필요']
     errors = []
     years = case.get('years', [])
@@ -38,6 +39,40 @@ def verify(case):
     parts = [last.get(k) for k in DEBT_KEYS]
     total = None if None in parts else sum(parts)
     due = None if None in parts else sum(parts[:3])
+    if case.get('schema_version') == 'gc-case-3':
+        for year in years:
+            y=str(year)
+            source=case.get('report_extracts', {}).get(y, {})
+            if digest(source) != case.get('report_extract_hashes', {}).get(y):
+                errors.append(f'{year}: 감사보고서 발췌 체크섬 불일치')
+            if (source.get('receipt') != case.get('rcept_nos', {}).get(y)
+                or source.get('fs_div') != case.get('fs_div')):
+                errors.append(f'{year}: 감사보고서 원문 범위 불일치')
+            for check in source.get('financial_checks', []):
+                try:
+                    token=source['note_lines'][check['line_index']].split(' | ')[check['column']].strip()
+                    value=0 if token in ('-','－') else won(token,check['unit'])
+                    if value != extracted[year].get(check['key']):
+                        errors.append(f'{year}: 재무제표 본문과 API 수치 불일치')
+                except (KeyError,IndexError,TypeError):
+                    errors.append(f'{year}: 재무제표 대조 셀 누락')
+            if {v.get('key') for v in source.get('financial_checks', [])} != {'profit','cash','assets','liabilities'}:
+                errors.append(f'{year}: 재무제표 본문 대조 항목 누락')
+            debt_pair=debt_values(case,year)
+            if debt_pair is None:
+                errors.append(f'{year}: 차입금 원문 대조표 불완전')
+                continue
+            d,t=debt_pair
+            annual={k:str(extracted[year].get(k)) for k in ('profit','cash','assets','liabilities')}
+            annual.update(due=str(d),debt=str(t))
+            if annual != case.get('annual_financials', {}).get(y):
+                errors.append(f'{year}: 연도별 저장 금액 재계산 불일치')
+            if report_wording(source) != case.get('audit_by_year', {}).get(y, {}).get('flag'):
+                errors.append(f'{year}: 감사보고서 문구 판정 불일치')
+        pair=debt_values(case,years[-1])
+        due,total=pair if pair else (None,None)
+        if case.get('wording') != case.get('audit_by_year', {}).get(str(years[-1]-1), {}).get('flag'):
+            errors.append('전기 감사보고서 판정 연도 불일치')
     expected = {
         'profit':[extracted[y].get('profit') for y in years],
         'cash':[extracted[y].get('cash') for y in years],

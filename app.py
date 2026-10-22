@@ -27,7 +27,7 @@ def load_real_cases(folder=ROOT / 'cases'):
         try:
             case = json.loads(path.read_text(encoding='utf-8'))
             if all(k in case for k in ('id', 'name', 'years', 'profit', 'cash', 'assets', 'liabilities', 'debt', 'due', 'wording')):
-                if case.get('schema_version') == 'gc-case-2':
+                if case.get('schema_version') in ('gc-case-2', 'gc-case-3'):
                     from verify_snapshot import verify
                     case['integrity_errors'] = verify(case)
                 out.append(case)
